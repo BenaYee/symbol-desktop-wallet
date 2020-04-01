@@ -15,10 +15,8 @@
  */
 // external dependencies
 import {mapGetters} from 'vuex'
-import {Component, Vue, Prop, Watch} from 'vue-property-decorator'
-import {MultisigAccountInfo, NetworkType, Address} from 'symbol-sdk'
-import {asyncScheduler, Subject} from 'rxjs'
-import {throttleTime} from 'rxjs/operators'
+import {Component, Vue, Watch} from 'vue-property-decorator'
+import { NetworkType, Address} from 'symbol-sdk'
 
 // internal dependencies
 import {WalletsModel} from '@/core/database/entities/WalletsModel'
@@ -29,36 +27,17 @@ import SignerSelector from '@/components/SignerSelector/SignerSelector.vue'
 import {RESTDispatcher} from '@/core/utils/RESTDispatcher'
 import {MultisigService} from '@/services/MultisigService'
 
-// custom types
-type group = 'confirmed' | 'unconfirmed' | 'partial'
 
 @Component({
   components: {SignerSelector},
   computed: {
     ...mapGetters({
       currentWallet: 'wallet/currentWallet',
-      currentWalletMultisigInfo: 'wallet/currentWalletMultisigInfo',
       networkType: 'network/networkType',
     }),
   },
 })
 export class TransactionListOptionsTs extends Vue {
-  @Prop({default: 'confirmed'}) currentTab: group
-
-  /**
-   * Minimum interval in ms between each refresh call
-   * @private
-   * @type {number}
-   */
-  private REFRESH_CALLS_THROTTLING: number = 500
-
-  /**
-   * Observable of public keys to fetch for 
-   *
-   * @private
-   * @type {Observable<string>}
-   */
-  private refreshStream$: Subject<{publicKey: string, group: group}> = new Subject
 
   /**
    * Currently active wallet
@@ -66,11 +45,6 @@ export class TransactionListOptionsTs extends Vue {
    */
   protected currentWallet: WalletsModel
 
-  /**
-   * Current wallet multisig info
-   * @type {MultisigAccountInfo}
-   */
-  protected currentWalletMultisigInfo: MultisigAccountInfo
 
   /**
  * Network type
@@ -85,6 +59,10 @@ export class TransactionListOptionsTs extends Vue {
    */
   protected selectedSigner: string = this.$store.getters['wallet/currentWallet'].values.get('publicKey')
 
+  /** 
+   * set the default to select all
+   */
+  protected selectedOption: string='all'
   /**
    * Whether to show the signer selector
    * @protected
@@ -97,6 +75,7 @@ export class TransactionListOptionsTs extends Vue {
    * @protected
    */
   protected onSignerSelectorChange(publicKey: string): void {
+  
     // set selected signer if the chosen account is a multisig one
     const isCosig = this.currentWallet.values.get('publicKey') !== publicKey
     const payload = !isCosig ? this.currentWallet : {
@@ -105,25 +84,29 @@ export class TransactionListOptionsTs extends Vue {
     }
 
     // clear previous account transactions
-    this.$store.dispatch('wallet/RESET_TRANSACTIONS', {model: payload})
+    this.$store.dispatch('wallet/RESET_TRANSACTIONS') 
 
     // dispatch actions using the rest dispatcher
     const dispatcher = new RESTDispatcher(this.$store.dispatch)
     dispatcher.add('wallet/SET_CURRENT_SIGNER', {model: payload})
-    dispatcher.add('wallet/REST_FETCH_TRANSACTIONS', {
-      group: this.currentTab,
+    const action: string = 'wallet/GET_ALL_TRANSACTIONS' 
+    dispatcher.add(action, {
+      group: 'all',
       address: Address.createFromPublicKey(publicKey, this.networkType).plain(),
       pageSize: 100,
     })
 
     dispatcher.throttle_dispatch()
+    
   }
-  /**
-   * Hook called when refresh button is clicked
-   * @protected
-   */
-  protected refresh(): void {
-    this.refreshStream$.next({publicKey: this.selectedSigner, group: this.currentTab})
+  protected onSelectedOptionChange(){
+    // clear previous account transactions
+    this.$store.dispatch('wallet/RESET_TRANSACTIONS')
+    this.$store.commit('wallet/isCosignatoryMode',false)
+    this.$emit('option-change',this.selectedOption)
+    if([ 'all','confirmed','unconfirmed','partial' ].indexOf(this.selectedOption) < 0){
+      this.onSignerSelectorChange(this.selectedOption)
+    }
   }
 
   /**
@@ -133,35 +116,21 @@ export class TransactionListOptionsTs extends Vue {
    * @type {{publicKey: string, label: string}[]}
    */
   protected get signers(): {publicKey: string, label: string}[] {
-    return new MultisigService(this.$store, this.$i18n).getSigners()
-  }
-
-  /**
-   * Hook called @ component creation
-   * Starts a subscription to handle REST calls for refreshing transactions
-   */
-  public created(): void {
-    this.refreshStream$
-      .pipe(
-        throttleTime(this.REFRESH_CALLS_THROTTLING, asyncScheduler, {leading: true, trailing: true}),
-      )
-      .subscribe(({publicKey, group}) => {
-        // dispatch REST call
-        this.$store.dispatch('wallet/REST_FETCH_TRANSACTIONS', {
-          group,
-          address: Address.createFromPublicKey(publicKey, this.networkType).plain(),
-          pageSize: 100,
-        })
-      })
+    const _signers = new MultisigService(this.$store, this.$i18n).getSigners()
+    return _signers.filter((signer)=>{
+      return signer.publicKey != this.currentWallet.values.get('publicKey')
+    })
   }
 
   /**
    * Watch for currentWallet changes
-   * Necessary to set the default signer in the selector 
+   * Necessary to set the default signer in the selector and set the default  option
    * @param {*} newCurrentWallet
    */
   @Watch('currentWallet')
   onCurrentWalletChange(newCurrentWallet: WalletsModel): void {
+    this.selectedOption = 'all'
+    this.$parent['selectedOption'] = 'all'
     this.selectedSigner = newCurrentWallet.values.get('publicKey')
   }
 
