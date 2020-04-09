@@ -227,6 +227,13 @@ export class FormSubWalletCreationTs extends Vue {
       // - return if subWallet is undefined
       if (!subWallet) return
 
+      // Verify that the import is repeated
+      const hasAddressInfo = this.currentWallets.find(w => w.address === subWallet.values.get('address'))
+      if (hasAddressInfo !== undefined){
+        this.$store.dispatch('notification/ADD_ERROR', `Already exists. Do not import it again. The account name is ${hasAddressInfo.name}`)
+        return null
+      }
+
       // - remove password before GC
       this.currentPassword = null
 
@@ -256,6 +263,36 @@ export class FormSubWalletCreationTs extends Vue {
       this.$store.dispatch('notification/ADD_ERROR', 'An error happened, please try again.')
       console.error(e)
     }
+  }
+
+  /**
+   * Get all sub-wallets under the current wallet
+   * @param {string} identifier 
+   * @param {string} address 
+   * @param {string} name 
+   * @return {WalletsModel}
+   */
+  public get currentWallets(): {
+    identifier: string
+    address: string
+    name: string
+  }[] {
+    if (!this.knownWallets || !this.knownWallets.length) {
+      return []
+    }
+
+    // filter wallets to only known wallet names
+    const knownWallets = this.wallets.getWallets(
+      (e) => this.knownWallets.includes(e.getIdentifier()),
+    )
+
+    return [...knownWallets].map(
+      ({identifier, values}) => ({
+        identifier,
+        address: values.get('address'),
+        name: values.get('name'),
+      }),
+    )
   }
 
   /**
