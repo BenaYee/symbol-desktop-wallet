@@ -181,6 +181,7 @@ interface WalletState {
   transactionCache: Record<string, Transaction[]>
   // Subscriptions to webSocket channels
   subscriptions: Record<string, SubscriptionType[][]>
+  hasUpdatedCurrentWallet: boolean
 }
 
 // Wallet state initial definition
@@ -213,6 +214,10 @@ const walletState: WalletState = {
   transactionCache: {},
   // Subscriptions to websocket channels.
   subscriptions: {},
+  /**
+   * A change in value means some of the current wallet values have changed.
+   */   
+  hasUpdatedCurrentWallet:false,
 }
 
 /**
@@ -305,6 +310,7 @@ export default {
         getters.confirmedTransactions,
       )
     },
+    hasUpdatedCurrentWallet:(state: WalletState)=>state.hasUpdatedCurrentWallet,
   },
   mutations: {
     setInitialized: (state, initialized) => { state.initialized = initialized },
@@ -391,6 +397,9 @@ export default {
 
       // - use Array.from to reset indexes
       return Vue.set(state, 'signedTransactions', Array.from(remaining))
+    },
+    toggleHasUpdatedCurrentWallet:(state)=>{
+      return Vue.set(state,'hasUpdatedCurrentWallet',!state.hasUpdatedCurrentWallet)
     },
   },
   actions: {

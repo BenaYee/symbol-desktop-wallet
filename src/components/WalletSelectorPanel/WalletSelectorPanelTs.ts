@@ -54,6 +54,7 @@ import ModalMnemonicExport from '@/views/modals/ModalMnemonicExport/ModalMnemoni
     knownWallets: 'wallet/knownWallets',
     knownWalletsInfo: 'wallet/knownWalletsInfo',
     networkMosaic: 'mosaic/networkMosaic',
+    hasUpdatedCurrentWallet:'wallet/hasUpdatedCurrentWallet',
   })}})
 export class WalletSelectorPanelTs extends Vue {
   /**
@@ -130,7 +131,7 @@ export class WalletSelectorPanelTs extends Vue {
    * @type string
    */
   public isLoading: boolean = true
-
+  public hasUpdatedCurrentWallet: boolean
   /**
    * Hook called when the component is created
    * @return {void}
@@ -219,7 +220,8 @@ export class WalletSelectorPanelTs extends Vue {
     if (!this.knownWallets || !this.knownWallets.length) {
       return []
     }
-
+    // force update the knownWallets
+    this.hasUpdatedCurrentWallet
     // filter wallets to only known wallet names
     const knownWallets = this.service.getWallets(
       (e) => this.knownWallets.includes(e.getIdentifier()),

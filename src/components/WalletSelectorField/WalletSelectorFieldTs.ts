@@ -23,6 +23,7 @@ import {WalletService} from '@/services/WalletService'
 @Component({computed: {...mapGetters({
   currentWallet: 'wallet/currentWallet',
   knownWallets: 'wallet/knownWallets',
+  hasUpdatedCurrentWallet:'wallet/hasUpdatedCurrentWallet',
 })}})
 export class WalletSelectorFieldTs extends Vue {
   @Prop({
@@ -51,6 +52,7 @@ export class WalletSelectorFieldTs extends Vue {
    * @var {WalletService}
    */
   public service: WalletService
+  public hasUpdatedCurrentWallet: boolean
 
   public created() {
     this.service = new WalletService(this.$store)
@@ -81,7 +83,8 @@ export class WalletSelectorFieldTs extends Vue {
     if (!this.knownWallets || !this.knownWallets.length) {
       return []
     }
-
+    // force update the knownWallets
+    this.hasUpdatedCurrentWallet
     // filter wallets to only known wallet names
     const knownWallets = this.service.getWallets(
       (e) => this.knownWallets.includes(e.getIdentifier()),
