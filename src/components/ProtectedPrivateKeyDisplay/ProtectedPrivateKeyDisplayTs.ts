@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {Component, Vue, Prop} from 'vue-property-decorator'
+import {Component, Vue, Prop, Watch} from 'vue-property-decorator'
 import {Account} from 'symbol-sdk'
 
 // internal dependencies
@@ -23,7 +23,8 @@ import {UIHelpers} from '@/core/utils/UIHelpers'
 // child components
 // @ts-ignore
 import ModalFormAccountUnlock from '@/views/modals/ModalFormAccountUnlock/ModalFormAccountUnlock.vue'
-
+const defaultCount: number = 10
+const defaultTimerDuration: number = 1000
 @Component({
   components: {
     ModalFormAccountUnlock,
@@ -64,8 +65,10 @@ export class ProtectedPrivateKeyDisplayTs extends Vue {
    * @internal
    * @var {number}
    */
-  public secondsCounter: number = 10
+  public secondsCounter: number = defaultCount
 
+  // Timer
+  public countInterval: any
   /// region computed properties getter/setter
   public get hasPlainPrivateKey(): boolean {
     return this.isDisplayingPrivateKey
@@ -76,10 +79,7 @@ export class ProtectedPrivateKeyDisplayTs extends Vue {
 
     if (f === true) {
       // "countdown" for hiding message
-      const cntInterval = this.onStartCounter()
-
-      // - private key hidden after 10 seconds
-      this.onHideTimeout(this.secondsCounter, cntInterval)
+      this.onStartCounter()
     }
   }
 
@@ -92,35 +92,25 @@ export class ProtectedPrivateKeyDisplayTs extends Vue {
   }
   /// end-region computed properties getter/setter
 
+  public init(){
+    this.hasPlainPrivateKey = false
+    this.secondsCounter = defaultCount
+    this.countInterval && clearInterval(this.countInterval)
+    this.countInterval = null
+  }
+
   /**
    * Hook called when the seconds counter starts
    * @return {void}
    */
   public onStartCounter() {
-    let cntInterval = null
-    cntInterval = setInterval(() => {
-      this.secondsCounter = this.secondsCounter - 1
+    !this.countInterval && (this.countInterval = setInterval(() => {
+      this.secondsCounter--
       if (this.secondsCounter < 0) {
-        this.secondsCounter = 0
-        clearInterval(cntInterval)
+        this.init()
       }
-    }, 999)
-    return cntInterval
+    }, defaultTimerDuration))
   }
-
-  /**
-   * Hook called when the hide timeout starts
-   * @return {void}
-   */
-  public onHideTimeout(seconds, counterInterval) {
-    // - private key hidden after 10 seconds
-    setTimeout(() => {
-      this.hasPlainPrivateKey = false
-      clearInterval(counterInterval)
-      this.secondsCounter = 10
-    }, seconds * 1000)
-  }
-
   /**
    * Hook called when the account unlock modal must open
    * @return {void}
@@ -139,5 +129,16 @@ export class ProtectedPrivateKeyDisplayTs extends Vue {
     this.hasAccountUnlockModal = false
     this.plainInformation = account.privateKey
     return true
+  }
+  /**
+   * It is necessary to observe the CurrentWallet, 
+   * so that we can access to init. 
+   */
+  @Watch('wallet.identifier')
+  observeCurrentWallet(){
+    this.init()
+  }
+  public destroyed(){
+    this.init()
   }
 }
