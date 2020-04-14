@@ -58,7 +58,8 @@
       "./public/build.js"
     ],
     "directories": {
-      "buildResources": "assets"
+      "buildResources": "assets",
+      "output":"release"
     }
   },
   "dependencies": {
